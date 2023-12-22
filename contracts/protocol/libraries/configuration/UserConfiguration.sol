@@ -13,6 +13,8 @@ import {ReserveConfiguration} from './ReserveConfiguration.sol';
 library UserConfiguration {
   using ReserveConfiguration for DataTypes.ReserveConfigurationMap;
 
+  // Borrowing mask  binary representation: 01010101...01010101
+  // Collateral mask binary representation: 10101010...10101010
   uint256 internal constant BORROWING_MASK =
     0x5555555555555555555555555555555555555555555555555555555555555555;
   uint256 internal constant COLLATERAL_MASK =
@@ -31,11 +33,13 @@ library UserConfiguration {
   ) internal {
     unchecked {
       require(reserveIndex < ReserveConfiguration.MAX_RESERVES_COUNT, Errors.INVALID_RESERVE_INDEX);
+      // (reserveIndex << 1) to get reserve position (this is a number)
+      // 1 << position to create single bit mask with one bit flipped at the right position
       uint256 bit = 1 << (reserveIndex << 1);
       if (borrowing) {
-        self.data |= bit;
+        self.data |= bit;  // Set the bit in self.data to 1 if its already 1 or not
       } else {
-        self.data &= ~bit;
+        self.data &= ~bit;  // Clear the bit in self.data, setting it to 0
       }
     }
   }
@@ -53,11 +57,14 @@ library UserConfiguration {
   ) internal {
     unchecked {
       require(reserveIndex < ReserveConfiguration.MAX_RESERVES_COUNT, Errors.INVALID_RESERVE_INDEX);
+      // (reserveIndex << 1) to get reserve position
+      // + 1 to get the collateral position (this is a number)
+      // 1 << position to create single bit mask with one bit flipped at the right position
       uint256 bit = 1 << ((reserveIndex << 1) + 1);
       if (usingAsCollateral) {
-        self.data |= bit;
+        self.data |= bit;  // Set the bit in self.data to 1 if its already 1 or not
       } else {
-        self.data &= ~bit;
+        self.data &= ~bit;  // Clear the bit in self.data, setting it to 0
       }
     }
   }
