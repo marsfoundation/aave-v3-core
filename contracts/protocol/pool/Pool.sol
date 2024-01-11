@@ -536,6 +536,11 @@ contract Pool is VersionedInitializable, PoolStorage, IPool {
   }
 
   /// @inheritdoc IPool
+  function getReservesCount() external view virtual override returns (uint256) {
+    return _reservesCount;
+  }
+
+  /// @inheritdoc IPool
   function getReserveAddressById(uint16 id) external view returns (address) {
     return _reservesList[id];
   }
