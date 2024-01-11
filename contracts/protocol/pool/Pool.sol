@@ -407,6 +407,7 @@ contract Pool is VersionedInitializable, PoolStorage, IPool {
       maxStableRateBorrowSizePercent: _maxStableRateBorrowSizePercent,
       reservesCount: _reservesCount,
       addressesProvider: address(ADDRESSES_PROVIDER),
+      pool: address(this),
       userEModeCategory: _usersEModeCategory[onBehalfOf],
       isAuthorizedFlashBorrower: IACLManager(ADDRESSES_PROVIDER.getACLManager()).isFlashBorrower(
         msg.sender
