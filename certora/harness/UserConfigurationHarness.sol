@@ -61,9 +61,4 @@ contract UserConfigurationHarness is PoolStorage {
         return UserConfiguration.isEmpty(usersConfig);
     }
 
-    // Returns the Isolation Mode state of the user
-    function getIsolationModeState()
-        public view returns (bool, address, uint256) {
-        return UserConfiguration.getIsolationModeState(usersConfig, _reserves, _reservesList);
-    }
 }

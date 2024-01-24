@@ -134,16 +134,6 @@ contract AaveProtocolDataProvider is IPoolDataProvider {
   }
 
   /// @inheritdoc IPoolDataProvider
-  function getDebtCeiling(address asset) external view override returns (uint256) {
-    return IPool(ADDRESSES_PROVIDER.getPool()).getConfiguration(asset).getDebtCeiling();
-  }
-
-  /// @inheritdoc IPoolDataProvider
-  function getDebtCeilingDecimals() external pure override returns (uint256) {
-    return ReserveConfiguration.DEBT_CEILING_DECIMALS;
-  }
-
-  /// @inheritdoc IPoolDataProvider
   function getReserveData(
     address asset
   )

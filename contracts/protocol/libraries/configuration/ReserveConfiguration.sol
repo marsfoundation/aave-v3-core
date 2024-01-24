@@ -19,7 +19,7 @@ library ReserveConfiguration {
   uint256 internal constant BORROWING_MASK =                 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFBFFFFFFFFFFFFFF; // prettier-ignore
   uint256 internal constant STABLE_BORROWING_MASK =          0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF7FFFFFFFFFFFFFF; // prettier-ignore
   uint256 internal constant PAUSED_MASK =                    0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFFFFFFFFFFF; // prettier-ignore
-  uint256 internal constant BORROWABLE_IN_ISOLATION_MASK =   0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFDFFFFFFFFFFFFFFF; // prettier-ignore
+  uint256 internal constant BORROWABLE_IN_ISOLATION_MASK =   0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFDFFFFFFFFFFFFFFF; // prettier-ignore [DEPRECATED]
   uint256 internal constant SILOED_BORROWING_MASK =          0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFBFFFFFFFFFFFFFFF; // prettier-ignore [DEPRECATED]
   uint256 internal constant FLASHLOAN_ENABLED_MASK =         0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF7FFFFFFFFFFFFFFF; // prettier-ignore
   uint256 internal constant RESERVE_FACTOR_MASK =            0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF0000FFFFFFFFFFFFFFFF; // prettier-ignore
@@ -39,7 +39,7 @@ library ReserveConfiguration {
   uint256 internal constant BORROWING_ENABLED_START_BIT_POSITION = 58;
   uint256 internal constant STABLE_BORROWING_ENABLED_START_BIT_POSITION = 59;
   uint256 internal constant IS_PAUSED_START_BIT_POSITION = 60;
-  uint256 internal constant BORROWABLE_IN_ISOLATION_START_BIT_POSITION = 61;
+  uint256 internal constant BORROWABLE_IN_ISOLATION_START_BIT_POSITION = 61; // [DEPRECATED]
   uint256 internal constant SILOED_BORROWING_START_BIT_POSITION = 62; // [DEPRECATED]
   uint256 internal constant FLASHLOAN_ENABLED_START_BIT_POSITION = 63;
   uint256 internal constant RESERVE_FACTOR_START_BIT_POSITION = 64;
@@ -225,39 +225,6 @@ library ReserveConfiguration {
   }
 
   /**
-   * @notice Sets the borrowable in isolation flag for the reserve.
-   * @dev When this flag is set to true, the asset will be borrowable against isolated collaterals and the borrowed
-   * amount will be accumulated in the isolated collateral's total debt exposure.
-   * @dev Only assets of the same family (eg USD stablecoins) should be borrowable in isolation mode to keep
-   * consistency in the debt ceiling calculations.
-   * @param self The reserve configuration
-   * @param borrowable True if the asset is borrowable
-   */
-  function setBorrowableInIsolation(
-    DataTypes.ReserveConfigurationMap memory self,
-    bool borrowable
-  ) internal pure {
-    self.data =
-      (self.data & BORROWABLE_IN_ISOLATION_MASK) |
-      (uint256(borrowable ? 1 : 0) << BORROWABLE_IN_ISOLATION_START_BIT_POSITION);
-  }
-
-  /**
-   * @notice Gets the borrowable in isolation flag for the reserve.
-   * @dev If the returned flag is true, the asset is borrowable against isolated collateral. Assets borrowed with
-   * isolated collateral is accounted for in the isolated collateral's total debt exposure.
-   * @dev Only assets of the same family (eg USD stablecoins) should be borrowable in isolation mode to keep
-   * consistency in the debt ceiling calculations.
-   * @param self The reserve configuration
-   * @return The borrowable in isolation flag
-   */
-  function getBorrowableInIsolation(
-    DataTypes.ReserveConfigurationMap memory self
-  ) internal pure returns (bool) {
-    return (self.data & ~BORROWABLE_IN_ISOLATION_MASK) != 0;
-  }
-
-  /**
    * @notice Enables or disables borrowing on the reserve
    * @param self The reserve configuration
    * @param enabled True if the borrowing needs to be enabled, false otherwise
@@ -382,31 +349,6 @@ library ReserveConfiguration {
     DataTypes.ReserveConfigurationMap memory self
   ) internal pure returns (uint256) {
     return (self.data & ~SUPPLY_CAP_MASK) >> SUPPLY_CAP_START_BIT_POSITION;
-  }
-
-  /**
-   * @notice Sets the debt ceiling in isolation mode for the asset
-   * @param self The reserve configuration
-   * @param ceiling The maximum debt ceiling for the asset
-   */
-  function setDebtCeiling(
-    DataTypes.ReserveConfigurationMap memory self,
-    uint256 ceiling
-  ) internal pure {
-    require(ceiling <= MAX_VALID_DEBT_CEILING, Errors.INVALID_DEBT_CEILING);
-
-    self.data = (self.data & DEBT_CEILING_MASK) | (ceiling << DEBT_CEILING_START_BIT_POSITION);
-  }
-
-  /**
-   * @notice Gets the debt ceiling for the asset if the asset is in isolation mode
-   * @param self The reserve configuration
-   * @return The debt ceiling (0 = isolation mode disabled)
-   */
-  function getDebtCeiling(
-    DataTypes.ReserveConfigurationMap memory self
-  ) internal pure returns (uint256) {
-    return (self.data & ~DEBT_CEILING_MASK) >> DEBT_CEILING_START_BIT_POSITION;
   }
 
   /**

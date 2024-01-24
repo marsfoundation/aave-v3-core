@@ -105,19 +105,6 @@ interface IPoolDataProvider {
   function getUnbackedMintCap(address asset) external view returns (uint256);
 
   /**
-   * @notice Returns the debt ceiling of the reserve
-   * @param asset The address of the underlying asset of the reserve
-   * @return The debt ceiling of the reserve
-   */
-  function getDebtCeiling(address asset) external view returns (uint256);
-
-  /**
-   * @notice Returns the debt ceiling decimals
-   * @return The debt ceiling decimals
-   */
-  function getDebtCeilingDecimals() external pure returns (uint256);
-
-  /**
    * @notice Returns the reserve data
    * @param asset The address of the underlying asset of the reserve
    * @return unbacked The amount of unbacked tokens

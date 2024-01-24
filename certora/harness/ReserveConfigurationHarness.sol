@@ -94,18 +94,6 @@ contract ReserveConfigurationHarness {
         return ReserveConfiguration.getPaused(reservesConfig);
     }
 
-    // Sets the borrowable in isolation flag for the reserve.
-    function setBorrowableInIsolation(bool borrowable) public {
-        DataTypes.ReserveConfigurationMap memory configNew = reservesConfig;
-        ReserveConfiguration.setBorrowableInIsolation(configNew, borrowable);
-        reservesConfig.data = configNew.data;
-    }
-
-    // Gets the borrowable in isolation flag for the reserve.
-    function getBorrowableInIsolation() public view returns (bool) {
-        return ReserveConfiguration.getBorrowableInIsolation(reservesConfig);
-    }
-
     // Enables or disables borrowing on the reserve
     function setBorrowingEnabled(bool enabled) public {
         DataTypes.ReserveConfigurationMap memory configNew = reservesConfig;
@@ -164,18 +152,6 @@ contract ReserveConfigurationHarness {
     // Gets the supply cap of the reserve
     function getSupplyCap() public view returns (uint256) {
         return ReserveConfiguration.getSupplyCap(reservesConfig);
-    }
-
-    // Sets the debt ceiling in isolation mode for the asset
-    function setDebtCeiling(uint256 ceiling) public {
-        DataTypes.ReserveConfigurationMap memory configNew = reservesConfig;
-        ReserveConfiguration.setDebtCeiling(configNew, ceiling);
-        reservesConfig.data = configNew.data;
-    }
-
-    // Gets the debt ceiling for the asset if the asset is in isolation mode
-    function getDebtCeiling() public view returns (uint256) {
-        return ReserveConfiguration.getDebtCeiling(reservesConfig);
     }
 
     // Sets the liquidation protocol fee of the reserve
@@ -300,8 +276,6 @@ contract ReserveConfigurationHarness {
         setStableRateBorrowingEnabled(val);
         } else if (id == 4) {
         setPaused(val);
-        } else {
-        setBorrowableInIsolation(val);
         }
     }
 
@@ -318,8 +292,6 @@ contract ReserveConfigurationHarness {
         return getStableRateBorrowingEnabled();
         } else if (id == 4) {
         return getPaused();
-        } else {
-        return getBorrowableInIsolation();
         }
     }
 }

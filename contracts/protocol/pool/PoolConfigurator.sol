@@ -212,17 +212,6 @@ contract PoolConfigurator is VersionedInitializable, IPoolConfigurator {
   }
 
   /// @inheritdoc IPoolConfigurator
-  function setBorrowableInIsolation(
-    address asset,
-    bool borrowable
-  ) external override onlyRiskOrPoolAdmins {
-    DataTypes.ReserveConfigurationMap memory currentConfig = _pool.getConfiguration(asset);
-    currentConfig.setBorrowableInIsolation(borrowable);
-    _pool.setConfiguration(asset, currentConfig);
-    emit BorrowableInIsolationChanged(asset, borrowable);
-  }
-
-  /// @inheritdoc IPoolConfigurator
   function setReservePause(address asset, bool paused) public override onlyEmergencyOrPoolAdmin {
     DataTypes.ReserveConfigurationMap memory currentConfig = _pool.getConfiguration(asset);
     currentConfig.setPaused(paused);
@@ -241,27 +230,6 @@ contract PoolConfigurator is VersionedInitializable, IPoolConfigurator {
     currentConfig.setReserveFactor(newReserveFactor);
     _pool.setConfiguration(asset, currentConfig);
     emit ReserveFactorChanged(asset, oldReserveFactor, newReserveFactor);
-  }
-
-  /// @inheritdoc IPoolConfigurator
-  function setDebtCeiling(
-    address asset,
-    uint256 newDebtCeiling
-  ) external override onlyRiskOrPoolAdmins {
-    DataTypes.ReserveConfigurationMap memory currentConfig = _pool.getConfiguration(asset);
-
-    uint256 oldDebtCeiling = currentConfig.getDebtCeiling();
-    if (oldDebtCeiling == 0) {
-      _checkNoSuppliers(asset);
-    }
-    currentConfig.setDebtCeiling(newDebtCeiling);
-    _pool.setConfiguration(asset, currentConfig);
-
-    if (newDebtCeiling == 0) {
-      _pool.resetIsolationModeTotalDebt(asset);
-    }
-
-    emit DebtCeilingChanged(asset, oldDebtCeiling, newDebtCeiling);
   }
 
   /// @inheritdoc IPoolConfigurator

@@ -32,7 +32,7 @@ library DataTypes {
     //the outstanding unbacked aTokens minted through the bridging feature
     uint128 unbacked;
     //the outstanding debt borrowed against this asset in isolation mode
-    uint128 isolationModeTotalDebt;
+    uint128 isolationModeTotalDebt;  // [DEPRECATED]
   }
 
   struct ReserveConfigurationMap {
@@ -45,7 +45,7 @@ library DataTypes {
     //bit 58: borrowing is enabled
     //bit 59: stable rate borrowing enabled
     //bit 60: asset is paused
-    //bit 61: borrowing in isolation mode is enabled
+    //bit 61: borrowing in isolation mode is enabled [DEPRECATED]
     //bit 62: siloed borrowing enabled [DEPRECATED]
     //bit 63: flashloaning enabled
     //bit 64-79: reserve factor
@@ -54,7 +54,7 @@ library DataTypes {
     //bit 152-167 liquidation protocol fee
     //bit 168-175 eMode category
     //bit 176-211 unbacked mint cap in whole tokens, unbackedMintCap == 0 => minting disabled
-    //bit 212-251 debt ceiling for isolation mode with (ReserveConfiguration::DEBT_CEILING_DECIMALS) decimals
+    //bit 212-251 debt ceiling for isolation mode with (ReserveConfiguration::DEBT_CEILING_DECIMALS) decimals [DEPRECATED]
     //bit 252-255 unused
 
     uint256 data;
@@ -229,9 +229,6 @@ library DataTypes {
     address oracle;
     uint8 userEModeCategory;
     address priceOracleSentinel;
-    bool isolationModeActive;
-    address isolationModeCollateralAddress;
-    uint256 isolationModeDebtCeiling;
   }
 
   struct ValidateLiquidationCallParams {

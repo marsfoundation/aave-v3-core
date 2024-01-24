@@ -191,24 +191,6 @@ library ValidationLogic {
       }
     }
 
-    if (params.isolationModeActive) {
-      // check that the asset being borrowed is borrowable in isolation mode AND
-      // the total exposure is no bigger than the collateral debt ceiling
-      require(
-        params.reserveCache.reserveConfiguration.getBorrowableInIsolation(),
-        Errors.ASSET_NOT_BORROWABLE_IN_ISOLATION
-      );
-
-      require(
-        reservesData[params.isolationModeCollateralAddress].isolationModeTotalDebt +
-          (params.amount /
-            10 ** (vars.reserveDecimals - ReserveConfiguration.DEBT_CEILING_DECIMALS))
-            .toUint128() <=
-          params.isolationModeDebtCeiling,
-        Errors.DEBT_CEILING_EXCEEDED
-      );
-    }
-
     if (params.userEModeCategory != 0) {
       require(
         params.reserveCache.reserveConfiguration.getEModeCategory() == params.userEModeCategory,
@@ -681,7 +663,7 @@ library ValidationLogic {
 
   /**
    * @notice Validates the action of activating the asset as collateral.
-   * @dev Only possible if the asset has non-zero LTV and the user is not in isolation mode
+   * @dev Only possible if the asset has non-zero LTV
    * @param reservesData The state of all the reserves
    * @param reservesList The addresses of all the active reserves
    * @param userConfig the user configuration
@@ -700,9 +682,6 @@ library ValidationLogic {
     if (!userConfig.isUsingAsCollateralAny()) {
       return true;
     }
-    (bool isolationModeActive, , ) = userConfig.getIsolationModeState(reservesData, reservesList);
-
-    return (!isolationModeActive && reserveConfig.getDebtCeiling() == 0);
   }
 
   /**
@@ -722,18 +701,6 @@ library ValidationLogic {
     DataTypes.ReserveConfigurationMap memory reserveConfig,
     address aTokenAddress
   ) internal view returns (bool) {
-    if (reserveConfig.getDebtCeiling() != 0) {
-      // ensures only the ISOLATED_COLLATERAL_SUPPLIER_ROLE can enable collateral as side-effect of an action
-      IPoolAddressesProvider addressesProvider = IncentivizedERC20(aTokenAddress)
-        .POOL()
-        .ADDRESSES_PROVIDER();
-      if (
-        !IAccessControl(addressesProvider.getACLManager()).hasRole(
-          ISOLATED_COLLATERAL_SUPPLIER_ROLE,
-          msg.sender
-        )
-      ) return false;
-    }
     return validateUseAsCollateral(reservesData, reservesList, userConfig, reserveConfig);
   }
 }
