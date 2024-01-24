@@ -724,7 +724,7 @@ interface IPool {
   /**
    * @notice Supplies an `amount` of underlying asset into the reserve, receiving in return overlying aTokens.
    * - E.g. User supplies 100 USDC and gets in return 100 aUSDC
-   * @dev Deprecated: Use the `supply` function instead
+   * @dev [DEPRECATED]: Use the `supply` function instead
    * @param asset The address of the underlying asset to supply
    * @param amount The amount to be supplied
    * @param onBehalfOf The address that will receive the aTokens, same as msg.sender if the user

@@ -9,7 +9,7 @@ contract ReserveConfigurationHarness {
     mapping(uint256 => uint256) public intSettersUpperBounds;
     mapping(uint256 => uint256) public intSetterslowerBounds;
     mapping(uint256 => uint256) public boolSettersCompare;
-    
+
     // Sets the Loan to Value of the reserve
     function setLtv(uint256 ltv) public {
         DataTypes.ReserveConfigurationMap memory configNew = reservesConfig;
@@ -104,18 +104,6 @@ contract ReserveConfigurationHarness {
     // Gets the borrowable in isolation flag for the reserve.
     function getBorrowableInIsolation() public view returns (bool) {
         return ReserveConfiguration.getBorrowableInIsolation(reservesConfig);
-    }
-
-    // Sets the siloed borrowing flag for the reserve.
-    function setSiloedBorrowing(bool siloed) public {
-        DataTypes.ReserveConfigurationMap memory configNew = reservesConfig;
-        ReserveConfiguration.setSiloedBorrowing(configNew, siloed);
-        reservesConfig.data = configNew.data;
-    }
-
-    // Gets the siloed borrowing flag for the reserve.
-    function getSiloedBorrowing() public view returns (bool) {
-        return ReserveConfiguration.getSiloedBorrowing(reservesConfig);
     }
 
     // Enables or disables borrowing on the reserve

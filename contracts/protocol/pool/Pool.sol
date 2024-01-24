@@ -715,7 +715,7 @@ contract Pool is VersionedInitializable, PoolStorage, IPool {
   }
 
   /// @inheritdoc IPool
-  /// @dev Deprecated: maintained for compatibility purposes
+  /// @dev [DEPRECATED]: maintained for compatibility purposes
   function deposit(
     address asset,
     uint256 amount,

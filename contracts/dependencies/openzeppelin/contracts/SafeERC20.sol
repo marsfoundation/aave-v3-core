@@ -30,7 +30,7 @@ library SafeERC20 {
   }
 
   /**
-   * @dev Deprecated. This function has issues similar to the ones found in
+   * @dev [DEPRECATED]. This function has issues similar to the ones found in
    * {IERC20-approve}, and its usage is discouraged.
    *
    * Whenever possible, use {safeIncreaseAllowance} and
