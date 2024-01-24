@@ -28,8 +28,7 @@ import {PoolStorage} from './PoolStorage.sol';
  *   # Withdraw
  *   # Borrow
  *   # Repay
- *   # Swap their loans between variable and stable rate
- *   # Enable/disable their supplied assets as collateral rebalance stable rate borrow positions
+ *   # Enable/disable their supplied assets as collateral
  *   # Liquidate positions
  *   # Execute Flash Loans
  * @dev To be covered by a proxy contract, owned by the PoolAddressesProvider of the specific market
@@ -108,7 +107,6 @@ contract Pool is VersionedInitializable, PoolStorage, IPool {
    */
   function initialize(IPoolAddressesProvider provider) external virtual initializer {
     require(provider == ADDRESSES_PROVIDER, Errors.INVALID_ADDRESSES_PROVIDER);
-    _maxStableRateBorrowSizePercent = 0.25e4;
   }
 
   /// @inheritdoc IPool
@@ -219,7 +217,6 @@ contract Pool is VersionedInitializable, PoolStorage, IPool {
   function borrow(
     address asset,
     uint256 amount,
-    uint256 interestRateMode,
     uint16 referralCode,
     address onBehalfOf
   ) public virtual override {
@@ -233,10 +230,8 @@ contract Pool is VersionedInitializable, PoolStorage, IPool {
         user: msg.sender,
         onBehalfOf: onBehalfOf,
         amount: amount,
-        interestRateMode: DataTypes.InterestRateMode(interestRateMode),
         referralCode: referralCode,
         releaseUnderlying: true,
-        maxStableRateBorrowSizePercent: _maxStableRateBorrowSizePercent,
         reservesCount: _reservesCount,
         oracle: ADDRESSES_PROVIDER.getPriceOracle(),
         userEModeCategory: _usersEModeCategory[onBehalfOf],
@@ -249,7 +244,6 @@ contract Pool is VersionedInitializable, PoolStorage, IPool {
   function repay(
     address asset,
     uint256 amount,
-    uint256 interestRateMode,
     address onBehalfOf
   ) public virtual override returns (uint256) {
     return
@@ -260,7 +254,6 @@ contract Pool is VersionedInitializable, PoolStorage, IPool {
         DataTypes.ExecuteRepayParams({
           asset: asset,
           amount: amount,
-          interestRateMode: DataTypes.InterestRateMode(interestRateMode),
           onBehalfOf: onBehalfOf,
           useATokens: false
         })
@@ -271,7 +264,6 @@ contract Pool is VersionedInitializable, PoolStorage, IPool {
   function repayWithPermit(
     address asset,
     uint256 amount,
-    uint256 interestRateMode,
     address onBehalfOf,
     uint256 deadline,
     uint8 permitV,
@@ -293,7 +285,6 @@ contract Pool is VersionedInitializable, PoolStorage, IPool {
       DataTypes.ExecuteRepayParams memory params = DataTypes.ExecuteRepayParams({
         asset: asset,
         amount: amount,
-        interestRateMode: DataTypes.InterestRateMode(interestRateMode),
         onBehalfOf: onBehalfOf,
         useATokens: false
       });
@@ -304,8 +295,7 @@ contract Pool is VersionedInitializable, PoolStorage, IPool {
   /// @inheritdoc IPool
   function repayWithATokens(
     address asset,
-    uint256 amount,
-    uint256 interestRateMode
+    uint256 amount
   ) public virtual override returns (uint256) {
     return
       BorrowLogic.executeRepay(
@@ -315,26 +305,10 @@ contract Pool is VersionedInitializable, PoolStorage, IPool {
         DataTypes.ExecuteRepayParams({
           asset: asset,
           amount: amount,
-          interestRateMode: DataTypes.InterestRateMode(interestRateMode),
           onBehalfOf: msg.sender,
           useATokens: true
         })
       );
-  }
-
-  /// @inheritdoc IPool
-  function swapBorrowRateMode(address asset, uint256 interestRateMode) public virtual override {
-    BorrowLogic.executeSwapBorrowRateMode(
-      _reserves[asset],
-      _usersConfig[msg.sender],
-      asset,
-      DataTypes.InterestRateMode(interestRateMode)
-    );
-  }
-
-  /// @inheritdoc IPool
-  function rebalanceStableBorrowRate(address asset, address user) public virtual override {
-    BorrowLogic.executeRebalanceStableBorrowRate(_reserves[asset], asset, user);
   }
 
   /// @inheritdoc IPool
@@ -402,7 +376,6 @@ contract Pool is VersionedInitializable, PoolStorage, IPool {
       referralCode: referralCode,
       flashLoanPremiumToProtocol: _flashLoanPremiumToProtocol,
       flashLoanPremiumTotal: _flashLoanPremiumTotal,
-      maxStableRateBorrowSizePercent: _maxStableRateBorrowSizePercent,
       reservesCount: _reservesCount,
       addressesProvider: address(ADDRESSES_PROVIDER),
       userEModeCategory: _usersEModeCategory[onBehalfOf],
@@ -539,11 +512,6 @@ contract Pool is VersionedInitializable, PoolStorage, IPool {
   }
 
   /// @inheritdoc IPool
-  function MAX_STABLE_RATE_BORROW_SIZE_PERCENT() public view virtual override returns (uint256) {
-    return _maxStableRateBorrowSizePercent;
-  }
-
-  /// @inheritdoc IPool
   function BRIDGE_PROTOCOL_FEE() public view virtual override returns (uint256) {
     return _bridgeProtocolFee;
   }
@@ -596,7 +564,6 @@ contract Pool is VersionedInitializable, PoolStorage, IPool {
   function initReserve(
     address asset,
     address aTokenAddress,
-    address stableDebtAddress,
     address variableDebtAddress,
     address interestRateStrategyAddress
   ) external virtual override onlyPoolConfigurator {
@@ -607,7 +574,6 @@ contract Pool is VersionedInitializable, PoolStorage, IPool {
         DataTypes.InitReserveParams({
           asset: asset,
           aTokenAddress: aTokenAddress,
-          stableDebtAddress: stableDebtAddress,
           variableDebtAddress: variableDebtAddress,
           interestRateStrategyAddress: interestRateStrategyAddress,
           reservesCount: _reservesCount,

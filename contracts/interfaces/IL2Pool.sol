@@ -47,7 +47,7 @@ interface IL2Pool {
    * @notice Calldata efficient wrapper of the borrow function, borrowing on behalf of the caller
    * @param args Arguments for the borrow function packed in one bytes32
    *    88 bits       16 bits             8 bits                 128 bits       16 bits
-   * | 0-padding | referralCode | shortenedInterestRateMode | shortenedAmount | assetId |
+   * | 0-padding | referralCode | shortenedAmount | assetId |
    * @dev the shortenedAmount is cast to 256 bits at decode time, if type(uint128).max the value will be expanded to
    * type(uint256).max
    * @dev assetId is the index of the asset in the reservesList.
@@ -58,7 +58,7 @@ interface IL2Pool {
    * @notice Calldata efficient wrapper of the repay function, repaying on behalf of the caller
    * @param args Arguments for the repay function packed in one bytes32
    *    104 bits             8 bits               128 bits       16 bits
-   * | 0-padding | shortenedInterestRateMode | shortenedAmount | assetId |
+   * | 0-padding | shortenedAmount | assetId |
    * @dev the shortenedAmount is cast to 256 bits at decode time, if type(uint128).max the value will be expanded to
    * type(uint256).max
    * @dev assetId is the index of the asset in the reservesList.
@@ -70,7 +70,7 @@ interface IL2Pool {
    * @notice Calldata efficient wrapper of the repayWithPermit function, repaying on behalf of the caller
    * @param args Arguments for the repayWithPermit function packed in one bytes32
    *    64 bits    8 bits        32 bits                   8 bits               128 bits       16 bits
-   * | 0-padding | permitV | shortenedDeadline | shortenedInterestRateMode | shortenedAmount | assetId |
+   * | 0-padding | permitV | shortenedDeadline | shortenedAmount | assetId |
    * @dev the shortenedAmount is cast to 256 bits at decode time, if type(uint128).max the value will be expanded to
    * type(uint256).max
    * @dev assetId is the index of the asset in the reservesList.
@@ -84,31 +84,13 @@ interface IL2Pool {
    * @notice Calldata efficient wrapper of the repayWithATokens function
    * @param args Arguments for the repayWithATokens function packed in one bytes32
    *    104 bits             8 bits               128 bits       16 bits
-   * | 0-padding | shortenedInterestRateMode | shortenedAmount | assetId |
+   * | 0-padding | shortenedAmount | assetId |
    * @dev the shortenedAmount is cast to 256 bits at decode time, if type(uint128).max the value will be expanded to
    * type(uint256).max
    * @dev assetId is the index of the asset in the reservesList.
    * @return The final amount repaid
    */
   function repayWithATokens(bytes32 args) external returns (uint256);
-
-  /**
-   * @notice Calldata efficient wrapper of the swapBorrowRateMode function
-   * @param args Arguments for the swapBorrowRateMode function packed in one bytes32
-   *    232 bits            8 bits             16 bits
-   * | 0-padding | shortenedInterestRateMode | assetId |
-   * @dev assetId is the index of the asset in the reservesList.
-   */
-  function swapBorrowRateMode(bytes32 args) external;
-
-  /**
-   * @notice Calldata efficient wrapper of the rebalanceStableBorrowRate function
-   * @param args Arguments for the rebalanceStableBorrowRate function packed in one bytes32
-   *    80 bits      160 bits     16 bits
-   * | 0-padding | user address | assetId |
-   * @dev assetId is the index of the asset in the reservesList.
-   */
-  function rebalanceStableBorrowRate(bytes32 args) external;
 
   /**
    * @notice Calldata efficient wrapper of the setUserUseReserveAsCollateral function

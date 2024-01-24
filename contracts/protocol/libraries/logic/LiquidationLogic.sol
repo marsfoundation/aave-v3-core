@@ -14,7 +14,6 @@ import {EModeLogic} from './EModeLogic.sol';
 import {UserConfiguration} from '../../libraries/configuration/UserConfiguration.sol';
 import {ReserveConfiguration} from '../../libraries/configuration/ReserveConfiguration.sol';
 import {IAToken} from '../../../interfaces/IAToken.sol';
-import {IStableDebtToken} from '../../../interfaces/IStableDebtToken.sol';
 import {IVariableDebtToken} from '../../../interfaces/IVariableDebtToken.sol';
 import {IPriceOracleGetter} from '../../../interfaces/IPriceOracleGetter.sol';
 
@@ -328,13 +327,6 @@ library LiquidationLogic {
           vars.debtReserveCache.variableDebtTokenAddress
         ).burn(params.user, vars.userVariableDebt, vars.debtReserveCache.nextVariableBorrowIndex);
       }
-      (
-        vars.debtReserveCache.nextTotalStableDebt,
-        vars.debtReserveCache.nextAvgStableBorrowRate
-      ) = IStableDebtToken(vars.debtReserveCache.stableDebtTokenAddress).burn(
-        params.user,
-        vars.actualDebtToLiquidate - vars.userVariableDebt
-      );
     }
   }
 
@@ -354,12 +346,12 @@ library LiquidationLogic {
     DataTypes.ExecuteLiquidationCallParams memory params,
     uint256 healthFactor
   ) internal view returns (uint256, uint256, uint256) {
-    (uint256 userStableDebt, uint256 userVariableDebt) = Helpers.getUserCurrentDebt(
+    uint256 userVariableDebt = Helpers.getUserCurrentDebt(
       params.user,
       debtReserveCache
     );
 
-    uint256 userTotalDebt = userStableDebt + userVariableDebt;
+    uint256 userTotalDebt = userVariableDebt;
 
     uint256 closeFactor = healthFactor > CLOSE_FACTOR_HF_THRESHOLD
       ? DEFAULT_LIQUIDATION_CLOSE_FACTOR
