@@ -132,6 +132,8 @@ library FlashLoanLogic {
           })
         );
       } else {
+        revert('FEATURE_DEPRECATED');
+
         // If the user chose to not return the funds, the system checks if there is enough collateral and
         // eventually opens a debt position
         BorrowLogic.executeBorrow(
