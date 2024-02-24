@@ -5,6 +5,7 @@ import {GPv2SafeERC20} from '../../../dependencies/gnosis/contracts/GPv2SafeERC2
 import {SafeCast} from '../../../dependencies/openzeppelin/contracts/SafeCast.sol';
 import {IERC20} from '../../../dependencies/openzeppelin/contracts/IERC20.sol';
 import {IAToken} from '../../../interfaces/IAToken.sol';
+import {IPool} from '../../../interfaces/IPool.sol';
 import {IFlashLoanReceiver} from '../../../flashloan/interfaces/IFlashLoanReceiver.sol';
 import {IFlashLoanSimpleReceiver} from '../../../flashloan/interfaces/IFlashLoanSimpleReceiver.sol';
 import {IPoolAddressesProvider} from '../../../interfaces/IPoolAddressesProvider.sol';
@@ -147,10 +148,10 @@ library FlashLoanLogic {
             interestRateMode: DataTypes.InterestRateMode(params.interestRateModes[vars.i]),
             referralCode: params.referralCode,
             releaseUnderlying: false,
-            maxStableRateBorrowSizePercent: params.maxStableRateBorrowSizePercent,
-            reservesCount: params.reservesCount,
+            maxStableRateBorrowSizePercent: IPool(params.pool).MAX_STABLE_RATE_BORROW_SIZE_PERCENT(),
+            reservesCount: IPool(params.pool).getReservesCount(),
             oracle: IPoolAddressesProvider(params.addressesProvider).getPriceOracle(),
-            userEModeCategory: params.userEModeCategory,
+            userEModeCategory: IPool(params.pool).getUserEMode(params.onBehalfOf).toUint8(),
             priceOracleSentinel: IPoolAddressesProvider(params.addressesProvider)
               .getPriceOracleSentinel()
           })

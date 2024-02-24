@@ -405,6 +405,7 @@ contract Pool is VersionedInitializable, PoolStorage, IPool {
       maxStableRateBorrowSizePercent: _maxStableRateBorrowSizePercent,
       reservesCount: _reservesCount,
       addressesProvider: address(ADDRESSES_PROVIDER),
+      pool: address(this),
       userEModeCategory: _usersEModeCategory[onBehalfOf],
       isAuthorizedFlashBorrower: IACLManager(ADDRESSES_PROVIDER.getACLManager()).isFlashBorrower(
         msg.sender
@@ -531,6 +532,11 @@ contract Pool is VersionedInitializable, PoolStorage, IPool {
       mstore(reservesList, sub(reservesListCount, droppedReservesCount))
     }
     return reservesList;
+  }
+
+  /// @inheritdoc IPool
+  function getReservesCount() external view virtual override returns (uint256) {
+    return _reservesCount;
   }
 
   /// @inheritdoc IPool
