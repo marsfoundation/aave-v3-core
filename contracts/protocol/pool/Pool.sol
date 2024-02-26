@@ -223,8 +223,6 @@ contract Pool is VersionedInitializable, PoolStorage, IPool {
     uint16 referralCode,
     address onBehalfOf
   ) public virtual override {
-    require(interestRateMode == 2, 'STABLE_BORROW_DEPRECATED');
-
     BorrowLogic.executeBorrow(
       _reserves,
       _reservesList,
@@ -326,12 +324,17 @@ contract Pool is VersionedInitializable, PoolStorage, IPool {
 
   /// @inheritdoc IPool
   function swapBorrowRateMode(address asset, uint256 interestRateMode) public virtual override {
-    revert('STABLE_BORROW_DEPRECATED');
+    BorrowLogic.executeSwapBorrowRateMode(
+      _reserves[asset],
+      _usersConfig[msg.sender],
+      asset,
+      DataTypes.InterestRateMode(interestRateMode)
+    );
   }
 
   /// @inheritdoc IPool
   function rebalanceStableBorrowRate(address asset, address user) public virtual override {
-    revert('STABLE_BORROW_DEPRECATED');
+    BorrowLogic.executeRebalanceStableBorrowRate(_reserves[asset], asset, user);
   }
 
   /// @inheritdoc IPool
