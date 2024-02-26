@@ -375,8 +375,8 @@ makeSuite('Pool: FlashLoan', (testEnv: TestEnv) => {
     ).to.be.reverted;
   });
 
-  it('Caller deposits 1000 DAI as collateral, Takes WETH flashloan with mode = 2, does not return the funds. A variable loan for caller is created', async () => {
-    const { dai, pool, weth, users, helpersContract } = testEnv;
+  it('Caller deposits 1000 DAI as collateral, Takes WETH flashloan with mode = 2 (revert expected, feature disabled)', async () => {
+    const { dai, pool, weth, users } = testEnv;
 
     const caller = users[1];
 
@@ -392,10 +392,6 @@ makeSuite('Pool: FlashLoan', (testEnv: TestEnv) => {
 
     await _mockFlashLoanReceiver.setFailExecutionTransfer(true);
 
-    let reserveData = await helpersContract.getReserveData(weth.address);
-
-    let totalLiquidityBefore = reserveData.totalAToken;
-
     const borrowAmount = ethers.utils.parseEther('0.0571');
 
     await expect(
@@ -410,37 +406,7 @@ makeSuite('Pool: FlashLoan', (testEnv: TestEnv) => {
           '0x10',
           '0'
         )
-    )
-      .to.emit(pool, 'FlashLoan')
-      .withArgs(
-        _mockFlashLoanReceiver.address,
-        caller.address,
-        weth.address,
-        borrowAmount,
-        2,
-        0,
-        0
-      );
-
-    const { variableDebtTokenAddress } = await helpersContract.getReserveTokensAddresses(
-      weth.address
-    );
-    reserveData = await helpersContract.getReserveData(weth.address);
-
-    const totalLiquidityAfter = reserveData.totalAToken;
-
-    expect(totalLiquidityAfter).to.be.closeTo(totalLiquidityBefore, 2);
-
-    const wethDebtToken = await getVariableDebtToken(variableDebtTokenAddress);
-    const callerDebt = await wethDebtToken.balanceOf(caller.address);
-
-    expect(callerDebt.toString()).to.be.equal('57100000000000000', 'Invalid user debt');
-    // repays debt for later, so no interest accrue
-    await weth
-      .connect(caller.signer)
-      ['mint(uint256)'](await convertToCurrencyDecimals(weth.address, '1000'));
-    await weth.connect(caller.signer).approve(pool.address, MAX_UINT_AMOUNT);
-    await pool.connect(caller.signer).repay(weth.address, MAX_UINT_AMOUNT, 2, caller.address);
+    ).to.be.revertedWith('FEATURE_DEPRECATED');
   });
   it('Tries to take a flashloan that is bigger than the available liquidity (revert expected)', async () => {
     const { pool, weth, users } = testEnv;
@@ -551,113 +517,6 @@ makeSuite('Pool: FlashLoan', (testEnv: TestEnv) => {
       );
   });
 
-  it('Takes out a 500 USDC flashloan with mode = 0, does not return the funds (revert expected)', async () => {
-    const { usdc, pool, users } = testEnv;
-    const caller = users[2];
-
-    const flashloanAmount = await convertToCurrencyDecimals(usdc.address, '500');
-
-    await _mockFlashLoanReceiver.setFailExecutionTransfer(true);
-
-    await expect(
-      pool
-        .connect(caller.signer)
-        .flashLoan(
-          _mockFlashLoanReceiver.address,
-          [usdc.address],
-          [flashloanAmount],
-          [2],
-          caller.address,
-          '0x10',
-          '0'
-        )
-    ).to.be.revertedWith(COLLATERAL_BALANCE_IS_ZERO);
-  });
-
-  it('Caller deposits 5 WETH as collateral, Takes a USDC flashloan with mode = 2, does not return the funds. A loan for caller is created, premium should be 0', async () => {
-    const { usdc, pool, weth, users, helpersContract } = testEnv;
-
-    const caller = users[2];
-
-    await weth
-      .connect(caller.signer)
-      ['mint(uint256)'](await convertToCurrencyDecimals(weth.address, '5'));
-
-    await weth.connect(caller.signer).approve(pool.address, MAX_UINT_AMOUNT);
-
-    const amountToDeposit = await convertToCurrencyDecimals(weth.address, '5');
-
-    await pool.connect(caller.signer).deposit(weth.address, amountToDeposit, caller.address, '0');
-
-    const flashloanAmount = await convertToCurrencyDecimals(usdc.address, '500');
-
-    await _mockFlashLoanReceiver.setFailExecutionTransfer(false);
-
-    await expect(
-      pool
-        .connect(caller.signer)
-        .flashLoan(
-          _mockFlashLoanReceiver.address,
-          [usdc.address],
-          [flashloanAmount],
-          [2],
-          caller.address,
-          '0x10',
-          '0'
-        )
-    )
-      .to.emit(_mockFlashLoanReceiver, 'ExecutedWithSuccess')
-      .withArgs([usdc.address], [flashloanAmount], [0]);
-
-    const { variableDebtTokenAddress } = await helpersContract.getReserveTokensAddresses(
-      usdc.address
-    );
-
-    const usdcDebtToken = await getVariableDebtToken(variableDebtTokenAddress);
-
-    const callerDebt = await usdcDebtToken.balanceOf(caller.address);
-
-    expect(callerDebt.toString()).to.be.equal('500000000', 'Invalid user debt');
-  });
-
-  it('Disable USDC borrowing. Caller deposits 5 WETH as collateral, Takes a USDC flashloan with mode = 2, does not return the funds. Revert creating borrow position (revert expected)', async () => {
-    const { usdc, pool, weth, configurator, users, helpersContract } = testEnv;
-
-    const caller = users[2];
-
-    expect(await configurator.setReserveStableRateBorrowing(usdc.address, false));
-    expect(await configurator.setReserveBorrowing(usdc.address, false));
-
-    let usdcConfiguration = await helpersContract.getReserveConfigurationData(usdc.address);
-    expect(usdcConfiguration.borrowingEnabled).to.be.equal(false);
-
-    await weth
-      .connect(caller.signer)
-      ['mint(uint256)'](await convertToCurrencyDecimals(weth.address, '5'));
-
-    await weth.connect(caller.signer).approve(pool.address, MAX_UINT_AMOUNT);
-
-    const amountToDeposit = await convertToCurrencyDecimals(weth.address, '5');
-
-    await pool.connect(caller.signer).deposit(weth.address, amountToDeposit, caller.address, '0');
-
-    const flashloanAmount = await convertToCurrencyDecimals(usdc.address, '500');
-
-    await expect(
-      pool
-        .connect(caller.signer)
-        .flashLoan(
-          _mockFlashLoanReceiver.address,
-          [usdc.address],
-          [flashloanAmount],
-          [2],
-          caller.address,
-          '0x10',
-          '0'
-        )
-    ).to.be.revertedWith(BORROWING_NOT_ENABLED);
-  });
-
   it('Caller deposits 1000 DAI as collateral, Takes a WETH flashloan with mode = 0, does not approve the transfer of the funds', async () => {
     const { dai, pool, weth, users } = testEnv;
     const caller = users[3];
@@ -690,122 +549,5 @@ makeSuite('Pool: FlashLoan', (testEnv: TestEnv) => {
           '0'
         )
     ).to.be.reverted;
-  });
-
-  it('Caller takes a WETH flashloan with mode = 1', async () => {
-    const { pool, weth, users, helpersContract } = testEnv;
-
-    const caller = users[3];
-
-    const flashAmount = ethers.utils.parseEther('0.0571');
-
-    await _mockFlashLoanReceiver.setFailExecutionTransfer(true);
-
-    await expect(
-      pool
-        .connect(caller.signer)
-        .flashLoan(
-          _mockFlashLoanReceiver.address,
-          [weth.address],
-          [flashAmount],
-          [1],
-          caller.address,
-          '0x10',
-          '0'
-        )
-    )
-      .to.emit(pool, 'FlashLoan')
-      .withArgs(_mockFlashLoanReceiver.address, caller.address, weth.address, flashAmount, 1, 0, 0);
-
-    const { stableDebtTokenAddress } = await helpersContract.getReserveTokensAddresses(
-      weth.address
-    );
-
-    const wethDebtToken = await getStableDebtToken(stableDebtTokenAddress);
-
-    const callerDebt = await wethDebtToken.balanceOf(caller.address);
-
-    expect(callerDebt.toString()).to.be.equal('57100000000000000', 'Invalid user debt');
-  });
-
-  it('Caller takes a WETH flashloan with mode = 1 onBehalfOf user without allowance', async () => {
-    const { dai, pool, weth, users, helpersContract } = testEnv;
-
-    const caller = users[5];
-    const onBehalfOf = users[4];
-
-    // Deposit 1000 dai for onBehalfOf user
-    await dai
-      .connect(onBehalfOf.signer)
-      ['mint(uint256)'](await convertToCurrencyDecimals(dai.address, '1000'));
-
-    await dai.connect(onBehalfOf.signer).approve(pool.address, MAX_UINT_AMOUNT);
-
-    const amountToDeposit = await convertToCurrencyDecimals(dai.address, '1000');
-
-    await pool
-      .connect(onBehalfOf.signer)
-      .deposit(dai.address, amountToDeposit, onBehalfOf.address, '0');
-
-    const flashAmount = ethers.utils.parseEther('0.0571');
-
-    await _mockFlashLoanReceiver.setFailExecutionTransfer(true);
-
-    await expect(
-      pool
-        .connect(caller.signer)
-        .flashLoan(
-          _mockFlashLoanReceiver.address,
-          [weth.address],
-          [flashAmount],
-          [1],
-          onBehalfOf.address,
-          '0x10',
-          '0'
-        )
-    ).to.be.reverted;
-  });
-
-  it('Caller takes a WETH flashloan with mode = 1 onBehalfOf user with allowance. A loan for onBehalfOf is creatd.', async () => {
-    const { pool, weth, users, helpersContract } = testEnv;
-
-    const caller = users[5];
-    const onBehalfOf = users[4];
-
-    const flashAmount = ethers.utils.parseEther('0.0571');
-
-    const reserveData = await pool.getReserveData(weth.address);
-
-    const stableDebtToken = await getStableDebtToken(reserveData.stableDebtTokenAddress);
-
-    // Deposited for onBehalfOf user already, delegate borrow allowance
-    await stableDebtToken.connect(onBehalfOf.signer).approveDelegation(caller.address, flashAmount);
-
-    await _mockFlashLoanReceiver.setFailExecutionTransfer(true);
-
-    await pool
-      .connect(caller.signer)
-      .flashLoan(
-        _mockFlashLoanReceiver.address,
-        [weth.address],
-        [flashAmount],
-        [1],
-        onBehalfOf.address,
-        '0x10',
-        '0'
-      );
-
-    const { stableDebtTokenAddress } = await helpersContract.getReserveTokensAddresses(
-      weth.address
-    );
-
-    const wethDebtToken = await getStableDebtToken(stableDebtTokenAddress);
-
-    const onBehalfOfDebt = await wethDebtToken.balanceOf(onBehalfOf.address);
-
-    expect(onBehalfOfDebt.toString()).to.be.equal(
-      '57100000000000000',
-      'Invalid onBehalfOf user debt'
-    );
   });
 });
