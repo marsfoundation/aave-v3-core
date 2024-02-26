@@ -148,7 +148,8 @@ library FlashLoanLogic {
             interestRateMode: DataTypes.InterestRateMode(params.interestRateModes[vars.i]),
             referralCode: params.referralCode,
             releaseUnderlying: false,
-            maxStableRateBorrowSizePercent: IPool(params.pool).MAX_STABLE_RATE_BORROW_SIZE_PERCENT(),
+            maxStableRateBorrowSizePercent: IPool(params.pool)
+              .MAX_STABLE_RATE_BORROW_SIZE_PERCENT(),
             reservesCount: IPool(params.pool).getReservesCount(),
             oracle: IPoolAddressesProvider(params.addressesProvider).getPriceOracle(),
             userEModeCategory: IPool(params.pool).getUserEMode(params.onBehalfOf).toUint8(),
