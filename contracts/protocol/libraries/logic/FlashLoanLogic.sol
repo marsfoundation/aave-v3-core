@@ -133,7 +133,7 @@ library FlashLoanLogic {
           })
         );
       } else {
-        revert('FEATURE_DEPRECATED');
+        revert('FLASHLOAN_INTO_BORROW_DEPRECATED');
       }
     }
   }

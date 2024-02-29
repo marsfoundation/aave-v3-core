@@ -406,7 +406,7 @@ makeSuite('Pool: FlashLoan', (testEnv: TestEnv) => {
           '0x10',
           '0'
         )
-    ).to.be.revertedWith('FEATURE_DEPRECATED');
+    ).to.be.revertedWith('FLASHLOAN_INTO_BORROW_DEPRECATED');
   });
   it('Tries to take a flashloan that is bigger than the available liquidity (revert expected)', async () => {
     const { pool, weth, users } = testEnv;
