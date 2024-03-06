@@ -133,40 +133,7 @@ library FlashLoanLogic {
           })
         );
       } else {
-        // If the user chose to not return the funds, the system checks if there is enough collateral and
-        // eventually opens a debt position
-        BorrowLogic.executeBorrow(
-          reservesData,
-          reservesList,
-          eModeCategories,
-          userConfig,
-          DataTypes.ExecuteBorrowParams({
-            asset: vars.currentAsset,
-            user: msg.sender,
-            onBehalfOf: params.onBehalfOf,
-            amount: vars.currentAmount,
-            interestRateMode: DataTypes.InterestRateMode(params.interestRateModes[vars.i]),
-            referralCode: params.referralCode,
-            releaseUnderlying: false,
-            maxStableRateBorrowSizePercent: IPool(params.pool)
-              .MAX_STABLE_RATE_BORROW_SIZE_PERCENT(),
-            reservesCount: IPool(params.pool).getReservesCount(),
-            oracle: IPoolAddressesProvider(params.addressesProvider).getPriceOracle(),
-            userEModeCategory: IPool(params.pool).getUserEMode(params.onBehalfOf).toUint8(),
-            priceOracleSentinel: IPoolAddressesProvider(params.addressesProvider)
-              .getPriceOracleSentinel()
-          })
-        );
-        // no premium is paid when taking on the flashloan as debt
-        emit FlashLoan(
-          params.receiverAddress,
-          msg.sender,
-          vars.currentAsset,
-          vars.currentAmount,
-          DataTypes.InterestRateMode(params.interestRateModes[vars.i]),
-          0,
-          params.referralCode
-        );
+        revert('FLASHLOAN_INTO_BORROW_DEPRECATED');
       }
     }
   }
