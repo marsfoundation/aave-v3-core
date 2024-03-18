@@ -37,10 +37,45 @@ import {PoolStorage} from './PoolStorage.sol';
  *   PoolAddressesProvider
  */
 contract Pool is VersionedInitializable, PoolStorage, IPool {
+
   using ReserveLogic for DataTypes.ReserveData;
 
+  /************************************************************************************************/
+  /*** Constants and immutables                                                                 ***/
+  /************************************************************************************************/
+
   uint256 public constant POOL_REVISION = 0x1;
+
   IPoolAddressesProvider public immutable ADDRESSES_PROVIDER;
+
+  /************************************************************************************************/
+  /*** Constructor and initializer                                                              ***/
+  /************************************************************************************************/
+
+  /**
+   * @dev Constructor.
+   * @param provider The address of the PoolAddressesProvider contract
+   */
+  constructor(IPoolAddressesProvider provider) {
+    ADDRESSES_PROVIDER = provider;
+  }
+
+  /**
+   * @notice Initializes the Pool.
+   * @dev Function is invoked by the proxy contract when the Pool contract is added to the
+   * PoolAddressesProvider of the market.
+   * @dev Caching the address of the PoolAddressesProvider in order to reduce gas consumption on
+   *      subsequent operations
+   * @param provider The address of the PoolAddressesProvider
+   */
+  function initialize(IPoolAddressesProvider provider) external virtual initializer {
+    require(provider == ADDRESSES_PROVIDER, Errors.INVALID_ADDRESSES_PROVIDER);
+    _maxStableRateBorrowSizePercent = 0.25e4;
+  }
+
+  /************************************************************************************************/
+  /*** Modifiers                                                                                ***/
+  /************************************************************************************************/
 
   /**
    * @dev Only pool configurator can call functions marked by this modifier.
@@ -65,6 +100,10 @@ contract Pool is VersionedInitializable, PoolStorage, IPool {
     _onlyBridge();
     _;
   }
+
+  /************************************************************************************************/
+  /*** ACL internal helper functions                                                            ***/
+  /************************************************************************************************/
 
   function _onlyPoolConfigurator() internal view virtual {
     require(
@@ -91,52 +130,26 @@ contract Pool is VersionedInitializable, PoolStorage, IPool {
     return POOL_REVISION;
   }
 
-  /**
-   * @dev Constructor.
-   * @param provider The address of the PoolAddressesProvider contract
-   */
-  constructor(IPoolAddressesProvider provider) {
-    ADDRESSES_PROVIDER = provider;
-  }
-
-  /**
-   * @notice Initializes the Pool.
-   * @dev Function is invoked by the proxy contract when the Pool contract is added to the
-   * PoolAddressesProvider of the market.
-   * @dev Caching the address of the PoolAddressesProvider in order to reduce gas consumption on subsequent operations
-   * @param provider The address of the PoolAddressesProvider
-   */
-  function initialize(IPoolAddressesProvider provider) external virtual initializer {
-    require(provider == ADDRESSES_PROVIDER, Errors.INVALID_ADDRESSES_PROVIDER);
-    _maxStableRateBorrowSizePercent = 0.25e4;
-  }
+  /************************************************************************************************/
+  /*** Supply and withdraw functions                                                            ***/
+  /************************************************************************************************/
 
   /// @inheritdoc IPool
-  function mintUnbacked(
+  function setUserUseReserveAsCollateral(
     address asset,
-    uint256 amount,
-    address onBehalfOf,
-    uint16 referralCode
-  ) external virtual override onlyBridge {
-    BridgeLogic.executeMintUnbacked(
+    bool useAsCollateral
+  ) public virtual override {
+    SupplyLogic.executeUseReserveAsCollateral(
       _reserves,
       _reservesList,
-      _usersConfig[onBehalfOf],
+      _eModeCategories,
+      _usersConfig[msg.sender],
       asset,
-      amount,
-      onBehalfOf,
-      referralCode
+      useAsCollateral,
+      _reservesCount,
+      ADDRESSES_PROVIDER.getPriceOracle(),
+      _usersEModeCategory[msg.sender]
     );
-  }
-
-  /// @inheritdoc IPool
-  function backUnbacked(
-    address asset,
-    uint256 amount,
-    uint256 fee
-  ) external virtual override onlyBridge returns (uint256) {
-    return
-      BridgeLogic.executeBackUnbacked(_reserves[asset], asset, amount, fee, _bridgeProtocolFee);
   }
 
   /// @inheritdoc IPool
@@ -214,6 +227,10 @@ contract Pool is VersionedInitializable, PoolStorage, IPool {
         })
       );
   }
+
+  /************************************************************************************************/
+  /*** Borrow and repay functions                                                               ***/
+  /************************************************************************************************/
 
   /// @inheritdoc IPool
   function borrow(
@@ -322,38 +339,29 @@ contract Pool is VersionedInitializable, PoolStorage, IPool {
       );
   }
 
-  /// @inheritdoc IPool
-  function swapBorrowRateMode(address asset, uint256 interestRateMode) public virtual override {
-    BorrowLogic.executeSwapBorrowRateMode(
-      _reserves[asset],
-      _usersConfig[msg.sender],
-      asset,
-      DataTypes.InterestRateMode(interestRateMode)
-    );
-  }
+  /************************************************************************************************/
+  /*** User E-Mode functions                                                                    ***/
+  /************************************************************************************************/
 
   /// @inheritdoc IPool
-  function rebalanceStableBorrowRate(address asset, address user) public virtual override {
-    BorrowLogic.executeRebalanceStableBorrowRate(_reserves[asset], asset, user);
-  }
-
-  /// @inheritdoc IPool
-  function setUserUseReserveAsCollateral(
-    address asset,
-    bool useAsCollateral
-  ) public virtual override {
-    SupplyLogic.executeUseReserveAsCollateral(
+  function setUserEMode(uint8 categoryId) external virtual override {
+    EModeLogic.executeSetUserEMode(
       _reserves,
       _reservesList,
       _eModeCategories,
+      _usersEModeCategory,
       _usersConfig[msg.sender],
-      asset,
-      useAsCollateral,
-      _reservesCount,
-      ADDRESSES_PROVIDER.getPriceOracle(),
-      _usersEModeCategory[msg.sender]
+      DataTypes.ExecuteSetUserEModeParams({
+        reservesCount: _reservesCount,
+        oracle: ADDRESSES_PROVIDER.getPriceOracle(),
+        categoryId: categoryId
+      })
     );
   }
+
+  /************************************************************************************************/
+  /*** Liquidation functions                                                                    ***/
+  /************************************************************************************************/
 
   /// @inheritdoc IPool
   function liquidationCall(
@@ -381,6 +389,10 @@ contract Pool is VersionedInitializable, PoolStorage, IPool {
       })
     );
   }
+
+  /************************************************************************************************/
+  /*** Flash loan functions                                                                     ***/
+  /************************************************************************************************/
 
   /// @inheritdoc IPool
   function flashLoan(
@@ -441,9 +453,172 @@ contract Pool is VersionedInitializable, PoolStorage, IPool {
     FlashLoanLogic.executeFlashLoanSimple(_reserves[asset], flashParams);
   }
 
+  /************************************************************************************************/
+  /*** Protocol revenue functions                                                               ***/
+  /************************************************************************************************/
+
   /// @inheritdoc IPool
   function mintToTreasury(address[] calldata assets) external virtual override {
     PoolLogic.executeMintToTreasury(_reserves, assets);
+  }
+
+  /************************************************************************************************/
+  /*** Admin reserve configuration functions                                                    ***/
+  /************************************************************************************************/
+
+  /// @inheritdoc IPool
+  function configureEModeCategory(
+    uint8 id,
+    DataTypes.EModeCategory memory category
+  ) external virtual override onlyPoolConfigurator {
+    // category 0 is reserved for volatile heterogeneous assets and it's always disabled
+    require(id != 0, Errors.EMODE_CATEGORY_RESERVED);
+    _eModeCategories[id] = category;
+  }
+
+  /// @inheritdoc IPool
+  function dropReserve(address asset) external virtual override onlyPoolConfigurator {
+    PoolLogic.executeDropReserve(_reserves, _reservesList, asset);
+  }
+
+  /// @inheritdoc IPool
+  function initReserve(
+    address asset,
+    address aTokenAddress,
+    address stableDebtAddress,
+    address variableDebtAddress,
+    address interestRateStrategyAddress
+  ) external virtual override onlyPoolConfigurator {
+    if (
+      PoolLogic.executeInitReserve(
+        _reserves,
+        _reservesList,
+        DataTypes.InitReserveParams({
+          asset: asset,
+          aTokenAddress: aTokenAddress,
+          stableDebtAddress: stableDebtAddress,
+          variableDebtAddress: variableDebtAddress,
+          interestRateStrategyAddress: interestRateStrategyAddress,
+          reservesCount: _reservesCount,
+          maxNumberReserves: MAX_NUMBER_RESERVES()
+        })
+      )
+    ) {
+      _reservesCount++;
+    }
+  }
+
+  /// @inheritdoc IPool
+  function setConfiguration(
+    address asset,
+    DataTypes.ReserveConfigurationMap calldata configuration
+  ) external virtual override onlyPoolConfigurator {
+    require(asset != address(0), Errors.ZERO_ADDRESS_NOT_VALID);
+    require(_reserves[asset].id != 0 || _reservesList[0] == asset, Errors.ASSET_NOT_LISTED);
+    _reserves[asset].configuration = configuration;
+  }
+
+  /// @inheritdoc IPool
+  function setReserveInterestRateStrategyAddress(
+    address asset,
+    address rateStrategyAddress
+  ) external virtual override onlyPoolConfigurator {
+    require(asset != address(0), Errors.ZERO_ADDRESS_NOT_VALID);
+    require(_reserves[asset].id != 0 || _reservesList[0] == asset, Errors.ASSET_NOT_LISTED);
+    _reserves[asset].interestRateStrategyAddress = rateStrategyAddress;
+  }
+
+  /************************************************************************************************/
+  /*** Admin pool-level configuration functions                                                 ***/
+  /************************************************************************************************/
+
+  /// @inheritdoc IPool
+  function updateFlashloanPremiums(
+    uint128 flashLoanPremiumTotal,
+    uint128 flashLoanPremiumToProtocol
+  ) external virtual override onlyPoolConfigurator {
+    _flashLoanPremiumTotal = flashLoanPremiumTotal;
+    _flashLoanPremiumToProtocol = flashLoanPremiumToProtocol;
+  }
+
+  /************************************************************************************************/
+  /*** Admin rescue functions                                                                   ***/
+  /************************************************************************************************/
+
+  /// @inheritdoc IPool
+  function resetIsolationModeTotalDebt(
+    address asset
+  ) external virtual override onlyPoolConfigurator {
+    PoolLogic.executeResetIsolationModeTotalDebt(_reserves, asset);
+  }
+
+  /// @inheritdoc IPool
+  function rescueTokens(
+    address token,
+    address to,
+    uint256 amount
+  ) external virtual override onlyPoolAdmin {
+    PoolLogic.executeRescueTokens(token, to, amount);
+  }
+
+  /************************************************************************************************/
+  /*** AToken validation functions                                                              ***/
+  /************************************************************************************************/
+
+  /// @inheritdoc IPool
+  function finalizeTransfer(
+    address asset,
+    address from,
+    address to,
+    uint256 amount,
+    uint256 balanceFromBefore,
+    uint256 balanceToBefore
+  ) external virtual override {
+    require(msg.sender == _reserves[asset].aTokenAddress, Errors.CALLER_NOT_ATOKEN);
+    SupplyLogic.executeFinalizeTransfer(
+      _reserves,
+      _reservesList,
+      _eModeCategories,
+      _usersConfig,
+      DataTypes.FinalizeTransferParams({
+        asset: asset,
+        from: from,
+        to: to,
+        amount: amount,
+        balanceFromBefore: balanceFromBefore,
+        balanceToBefore: balanceToBefore,
+        reservesCount: _reservesCount,
+        oracle: ADDRESSES_PROVIDER.getPriceOracle(),
+        fromEModeCategory: _usersEModeCategory[from]
+      })
+    );
+  }
+
+  /************************************************************************************************/
+  /*** E-mode getter functions                                                                  ***/
+  /************************************************************************************************/
+
+  /// @inheritdoc IPool
+  function getEModeCategoryData(
+    uint8 id
+  ) external view virtual override returns (DataTypes.EModeCategory memory) {
+    return _eModeCategories[id];
+  }
+
+  /************************************************************************************************/
+  /*** Reserve getter functions                                                                 ***/
+  /************************************************************************************************/
+
+  /// @inheritdoc IPool
+  function getConfiguration(
+    address asset
+  ) external view virtual override returns (DataTypes.ReserveConfigurationMap memory) {
+    return _reserves[asset].configuration;
+  }
+
+  /// @inheritdoc IPool
+  function getReserveAddressById(uint16 id) external view returns (address) {
+    return _reservesList[id];
   }
 
   /// @inheritdoc IPool
@@ -452,6 +627,50 @@ contract Pool is VersionedInitializable, PoolStorage, IPool {
   ) external view virtual override returns (DataTypes.ReserveData memory) {
     return _reserves[asset];
   }
+
+  /// @inheritdoc IPool
+  function getReserveNormalizedIncome(
+    address asset
+  ) external view virtual override returns (uint256) {
+    return _reserves[asset].getNormalizedIncome();
+  }
+
+  /// @inheritdoc IPool
+  function getReserveNormalizedVariableDebt(
+    address asset
+  ) external view virtual override returns (uint256) {
+    return _reserves[asset].getNormalizedDebt();
+  }
+
+  /// @inheritdoc IPool
+  function getReservesCount() external view virtual override returns (uint256) {
+    return _reservesCount;
+  }
+
+  /// @inheritdoc IPool
+  function getReservesList() external view virtual override returns (address[] memory) {
+    uint256 reservesListCount = _reservesCount;
+    uint256 droppedReservesCount = 0;
+    address[] memory reservesList = new address[](reservesListCount);
+
+    for (uint256 i = 0; i < reservesListCount; i++) {
+      if (_reservesList[i] != address(0)) {
+        reservesList[i - droppedReservesCount] = _reservesList[i];
+      } else {
+        droppedReservesCount++;
+      }
+    }
+
+    // Reduces the length of the reserves array by `droppedReservesCount`
+    assembly {
+      mstore(reservesList, sub(reservesListCount, droppedReservesCount))
+    }
+    return reservesList;
+  }
+
+  /************************************************************************************************/
+  /*** User getter functions                                                                    ***/
+  /************************************************************************************************/
 
   /// @inheritdoc IPool
   function getUserAccountData(
@@ -486,13 +705,6 @@ contract Pool is VersionedInitializable, PoolStorage, IPool {
   }
 
   /// @inheritdoc IPool
-  function getConfiguration(
-    address asset
-  ) external view virtual override returns (DataTypes.ReserveConfigurationMap memory) {
-    return _reserves[asset].configuration;
-  }
-
-  /// @inheritdoc IPool
   function getUserConfiguration(
     address user
   ) external view virtual override returns (DataTypes.UserConfigurationMap memory) {
@@ -500,49 +712,13 @@ contract Pool is VersionedInitializable, PoolStorage, IPool {
   }
 
   /// @inheritdoc IPool
-  function getReserveNormalizedIncome(
-    address asset
-  ) external view virtual override returns (uint256) {
-    return _reserves[asset].getNormalizedIncome();
+  function getUserEMode(address user) external view virtual override returns (uint256) {
+    return _usersEModeCategory[user];
   }
 
-  /// @inheritdoc IPool
-  function getReserveNormalizedVariableDebt(
-    address asset
-  ) external view virtual override returns (uint256) {
-    return _reserves[asset].getNormalizedDebt();
-  }
-
-  /// @inheritdoc IPool
-  function getReservesList() external view virtual override returns (address[] memory) {
-    uint256 reservesListCount = _reservesCount;
-    uint256 droppedReservesCount = 0;
-    address[] memory reservesList = new address[](reservesListCount);
-
-    for (uint256 i = 0; i < reservesListCount; i++) {
-      if (_reservesList[i] != address(0)) {
-        reservesList[i - droppedReservesCount] = _reservesList[i];
-      } else {
-        droppedReservesCount++;
-      }
-    }
-
-    // Reduces the length of the reserves array by `droppedReservesCount`
-    assembly {
-      mstore(reservesList, sub(reservesListCount, droppedReservesCount))
-    }
-    return reservesList;
-  }
-
-  /// @inheritdoc IPool
-  function getReservesCount() external view virtual override returns (uint256) {
-    return _reservesCount;
-  }
-
-  /// @inheritdoc IPool
-  function getReserveAddressById(uint16 id) external view returns (address) {
-    return _reservesList[id];
-  }
+  /************************************************************************************************/
+  /*** Pool-level configuration getters                                                         ***/
+  /************************************************************************************************/
 
   /// @inheritdoc IPool
   function MAX_STABLE_RATE_BORROW_SIZE_PERCENT() public view virtual override returns (uint256) {
@@ -569,156 +745,9 @@ contract Pool is VersionedInitializable, PoolStorage, IPool {
     return ReserveConfiguration.MAX_RESERVES_COUNT;
   }
 
-  /// @inheritdoc IPool
-  function finalizeTransfer(
-    address asset,
-    address from,
-    address to,
-    uint256 amount,
-    uint256 balanceFromBefore,
-    uint256 balanceToBefore
-  ) external virtual override {
-    require(msg.sender == _reserves[asset].aTokenAddress, Errors.CALLER_NOT_ATOKEN);
-    SupplyLogic.executeFinalizeTransfer(
-      _reserves,
-      _reservesList,
-      _eModeCategories,
-      _usersConfig,
-      DataTypes.FinalizeTransferParams({
-        asset: asset,
-        from: from,
-        to: to,
-        amount: amount,
-        balanceFromBefore: balanceFromBefore,
-        balanceToBefore: balanceToBefore,
-        reservesCount: _reservesCount,
-        oracle: ADDRESSES_PROVIDER.getPriceOracle(),
-        fromEModeCategory: _usersEModeCategory[from]
-      })
-    );
-  }
-
-  /// @inheritdoc IPool
-  function initReserve(
-    address asset,
-    address aTokenAddress,
-    address stableDebtAddress,
-    address variableDebtAddress,
-    address interestRateStrategyAddress
-  ) external virtual override onlyPoolConfigurator {
-    if (
-      PoolLogic.executeInitReserve(
-        _reserves,
-        _reservesList,
-        DataTypes.InitReserveParams({
-          asset: asset,
-          aTokenAddress: aTokenAddress,
-          stableDebtAddress: stableDebtAddress,
-          variableDebtAddress: variableDebtAddress,
-          interestRateStrategyAddress: interestRateStrategyAddress,
-          reservesCount: _reservesCount,
-          maxNumberReserves: MAX_NUMBER_RESERVES()
-        })
-      )
-    ) {
-      _reservesCount++;
-    }
-  }
-
-  /// @inheritdoc IPool
-  function dropReserve(address asset) external virtual override onlyPoolConfigurator {
-    PoolLogic.executeDropReserve(_reserves, _reservesList, asset);
-  }
-
-  /// @inheritdoc IPool
-  function setReserveInterestRateStrategyAddress(
-    address asset,
-    address rateStrategyAddress
-  ) external virtual override onlyPoolConfigurator {
-    require(asset != address(0), Errors.ZERO_ADDRESS_NOT_VALID);
-    require(_reserves[asset].id != 0 || _reservesList[0] == asset, Errors.ASSET_NOT_LISTED);
-    _reserves[asset].interestRateStrategyAddress = rateStrategyAddress;
-  }
-
-  /// @inheritdoc IPool
-  function setConfiguration(
-    address asset,
-    DataTypes.ReserveConfigurationMap calldata configuration
-  ) external virtual override onlyPoolConfigurator {
-    require(asset != address(0), Errors.ZERO_ADDRESS_NOT_VALID);
-    require(_reserves[asset].id != 0 || _reservesList[0] == asset, Errors.ASSET_NOT_LISTED);
-    _reserves[asset].configuration = configuration;
-  }
-
-  /// @inheritdoc IPool
-  function updateBridgeProtocolFee(
-    uint256 protocolFee
-  ) external virtual override onlyPoolConfigurator {
-    _bridgeProtocolFee = protocolFee;
-  }
-
-  /// @inheritdoc IPool
-  function updateFlashloanPremiums(
-    uint128 flashLoanPremiumTotal,
-    uint128 flashLoanPremiumToProtocol
-  ) external virtual override onlyPoolConfigurator {
-    _flashLoanPremiumTotal = flashLoanPremiumTotal;
-    _flashLoanPremiumToProtocol = flashLoanPremiumToProtocol;
-  }
-
-  /// @inheritdoc IPool
-  function configureEModeCategory(
-    uint8 id,
-    DataTypes.EModeCategory memory category
-  ) external virtual override onlyPoolConfigurator {
-    // category 0 is reserved for volatile heterogeneous assets and it's always disabled
-    require(id != 0, Errors.EMODE_CATEGORY_RESERVED);
-    _eModeCategories[id] = category;
-  }
-
-  /// @inheritdoc IPool
-  function getEModeCategoryData(
-    uint8 id
-  ) external view virtual override returns (DataTypes.EModeCategory memory) {
-    return _eModeCategories[id];
-  }
-
-  /// @inheritdoc IPool
-  function setUserEMode(uint8 categoryId) external virtual override {
-    EModeLogic.executeSetUserEMode(
-      _reserves,
-      _reservesList,
-      _eModeCategories,
-      _usersEModeCategory,
-      _usersConfig[msg.sender],
-      DataTypes.ExecuteSetUserEModeParams({
-        reservesCount: _reservesCount,
-        oracle: ADDRESSES_PROVIDER.getPriceOracle(),
-        categoryId: categoryId
-      })
-    );
-  }
-
-  /// @inheritdoc IPool
-  function getUserEMode(address user) external view virtual override returns (uint256) {
-    return _usersEModeCategory[user];
-  }
-
-  /// @inheritdoc IPool
-  function resetIsolationModeTotalDebt(
-    address asset
-  ) external virtual override onlyPoolConfigurator {
-    PoolLogic.executeResetIsolationModeTotalDebt(_reserves, asset);
-  }
-
-  /// @inheritdoc IPool
-  function rescueTokens(
-    address token,
-    address to,
-    uint256 amount
-  ) external virtual override onlyPoolAdmin {
-    PoolLogic.executeRescueTokens(token, to, amount);
-  }
+  /************************************************************************************************/
+  /*** [DEPRECATED] Deposit functions                                                           ***/
+  /************************************************************************************************/
 
   /// @inheritdoc IPool
   /// @dev Deprecated: maintained for compatibility purposes
@@ -740,4 +769,67 @@ contract Pool is VersionedInitializable, PoolStorage, IPool {
       })
     );
   }
+
+  /************************************************************************************************/
+  /*** [DEPRECATED] Stable interest management functions                                        ***/
+  /************************************************************************************************/
+
+  /// @inheritdoc IPool
+  function swapBorrowRateMode(address asset, uint256 interestRateMode) public virtual override {
+    BorrowLogic.executeSwapBorrowRateMode(
+      _reserves[asset],
+      _usersConfig[msg.sender],
+      asset,
+      DataTypes.InterestRateMode(interestRateMode)
+    );
+  }
+
+  /// @inheritdoc IPool
+  function rebalanceStableBorrowRate(address asset, address user) public virtual override {
+    BorrowLogic.executeRebalanceStableBorrowRate(_reserves[asset], asset, user);
+  }
+
+  /************************************************************************************************/
+  /*** [DEPRECATED] Bridging functions                                                          ***/
+  /************************************************************************************************/
+
+  /// @inheritdoc IPool
+  function mintUnbacked(
+    address asset,
+    uint256 amount,
+    address onBehalfOf,
+    uint16 referralCode
+  ) external virtual override onlyBridge {
+    BridgeLogic.executeMintUnbacked(
+      _reserves,
+      _reservesList,
+      _usersConfig[onBehalfOf],
+      asset,
+      amount,
+      onBehalfOf,
+      referralCode
+    );
+  }
+
+  /// @inheritdoc IPool
+  function backUnbacked(
+    address asset,
+    uint256 amount,
+    uint256 fee
+  ) external virtual override onlyBridge returns (uint256) {
+    return
+      BridgeLogic.executeBackUnbacked(_reserves[asset], asset, amount, fee, _bridgeProtocolFee);
+  }
+
+  /************************************************************************************************/
+  /*** [DEPRECATED] Admin pool-level configuration functions                                    ***/
+  /************************************************************************************************/
+
+  /// @inheritdoc IPool
+  function updateBridgeProtocolFee(
+    uint256 protocolFee
+  ) external virtual override onlyPoolConfigurator {
+    _bridgeProtocolFee = protocolFee;
+  }
+
 }
